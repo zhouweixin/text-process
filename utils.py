@@ -45,7 +45,8 @@ def extract_info_by_filename(in_path='txt',
             num = codedate2num.setdefault(key, 0) + 1
             codedate2num[key] = num
             row_num += 1
-            datas.append({'序号': row_num, '证券代码': str(code), '公司简称': firm, '标题': title, '日期': date, '公告序号': num, '移动':0})
+            datas.append(
+                {'序号': row_num, '证券代码': str(code), '公司简称': firm, '标题': title, '日期': date, '公告序号': num, '移动': 0})
 
             # 复制文件
             try:
@@ -128,7 +129,7 @@ def extract_info_by_rule1(in_path='target_txt',
                           rule_names=['1', '2', '3'],
                           rules=['5.本人不存在', '第', '条所列', '的情形'],
                           max_len=20,
-                          fun = 2):
+                          fun=2):
     """
     根据规则提取信息
     :param in_path: 输入路径
@@ -159,19 +160,21 @@ def extract_info_by_rule1(in_path='target_txt',
 
     row_num2name2value = {}
     files = os.listdir(in_path)
-    for i,file in enumerate(files):
-        sys.stdout.write('\r%d / %d' % (i+1, len(files)))
+    for i, file in enumerate(files):
+        sys.stdout.write('\r%d / %d' % (i + 1, len(files)))
         if not os.path.exists(os.path.join(in_path, file)):
             continue
 
         with open(os.path.join(in_path, file), 'r', encoding='gbk') as f:
             content = f.read()
             search = re.finditer(rule, content)
+
+            find = False
             for s in search:
                 find = True
                 for i in range(2):
                     strs = s.group(i + 1)
-                    if '。' in strs or len(strs)>max_len:
+                    if '。' in strs or len(strs) > max_len:
                         find = False
                         break
 
@@ -182,7 +185,6 @@ def extract_info_by_rule1(in_path='target_txt',
                     context = s.group()
                     break
             if find:
-
                 # 序号
                 row_num = file.replace('.txt', '')
                 row_num2name2value[row_num] = {}
@@ -198,13 +200,13 @@ def extract_info_by_rule1(in_path='target_txt',
     columns.append('上下文')
     datas = datas.reindex(columns=columns)
     for i, row in datas.iterrows():
-        col_num = datas.shape[1]-1
+        col_num = datas.shape[1] - 1
         row_num = row['序号']
         name2value = row_num2name2value.setdefault(row_num, {})
         datas.iloc[i, col_num] = name2value.setdefault('context', ' ')
         values = name2value.setdefault('values', {})
-        for j,name in enumerate(rule_names):
-            datas.iloc[i, col_num-len(rule_names)+j] = values.setdefault(name, ' ')
+        for j, name in enumerate(rule_names):
+            datas.iloc[i, col_num - len(rule_names) + j] = values.setdefault(name, ' ')
 
     datas.to_excel(out_file, encoding='gbk', index=False, columns=columns)
     print('\n提取完成, 保存为：' + out_file)
@@ -239,3 +241,46 @@ def move_file(in_path='target_txt', in_file='fileinfo.xlsx', out_path='分类1',
             shutil.move(os.path.join(in_path, file), os.path.join(out_path, file))
 
     print('移动完成')
+
+
+def select(in_path='txt',
+           keyword='',
+           out_path='筛选结果',
+           fun=4):
+    if not fun == 4:
+        return
+
+    print("【筛选函数】")
+
+    if not os.path.exists(in_path):
+        print('路径不存在：' + in_path)
+
+    os.mkdir(out_path) if not os.path.exists(out_path) else 1
+
+    files = os.listdir(in_path)
+    for file in files:
+        if keyword in file:
+            print(file)
+            shutil.copy(os.path.join(in_path, file), os.path.join(out_path, file))
+
+    print('筛选完成')
+
+
+def rev(in_path='txt',
+        keyword='',
+        fun=5):
+    if not fun == 5:
+        return
+
+    print("【删除函数】")
+
+    if not os.path.exists(in_path):
+        print('路径不存在：' + in_path)
+
+    files = os.listdir(in_path)
+    for file in files:
+        if keyword in file:
+            print(file)
+            os.remove(os.path.join(in_path, file))
+
+    print('删除完成')
