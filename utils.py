@@ -252,8 +252,7 @@ def move_file(in_path='target_txt', in_file='fileinfo.xlsx', out_path='分类1',
 
 
 def select(in_path='txt',
-           keyword='',
-           out_path='筛选结果',
+           keywords=[],
            fun=4):
     if not fun == 4:
         return
@@ -263,13 +262,15 @@ def select(in_path='txt',
     if not os.path.exists(in_path):
         print('路径不存在：' + in_path)
 
-    os.mkdir(out_path) if not os.path.exists(out_path) else 1
+    for keyword in keywords:
+        os.mkdir(keyword) if not os.path.exists(keyword) else 1
 
     files = os.listdir(in_path)
     for file in files:
-        if keyword in file:
-            print(file)
-            shutil.copy(os.path.join(in_path, file), os.path.join(out_path, file))
+        for keyword in keywords:
+            if keyword in file:
+                print(file)
+                shutil.copy(os.path.join(in_path, file), os.path.join(keyword, file))
 
     print('筛选完成')
 
@@ -358,6 +359,12 @@ def clear(in_path='txt',
             code = match.group(1)
             title = match.group(2)
             date = match.group(3)
+
+            # 去掉冒号前的部分
+            title = title.split("：")[1]
+            # 前9个字相同认为就相同
+            if len(title) > 9:
+                title = title[0:9]
 
             fileinfos.append({
                 'file': file,
