@@ -175,7 +175,7 @@ def extract_info_by_rule1(in_path='target_txt',
             find = False
             for s in search:
                 find = True
-                for i in range(2):
+                for i in range(len(rule_names)):
                     strs = s.group(i + 1)
                     if '。' in strs or len(strs) > max_len:
                         find = False
