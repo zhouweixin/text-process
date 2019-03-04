@@ -51,8 +51,10 @@ def extract_info_by_filename(in_path='txt',
             # 复制文件
             try:
                 open(os.path.join(out_path, str(row_num) + '.txt'), 'w', encoding='gbk').write(
-                    open(os.path.join(in_path, file), 'r', encoding='gbk', errors='ignore').read().replace(' ', '').replace('\t',
+                    open(os.path.join(in_path, file), 'r', encoding='gbk', errors='ignore').read().replace(' ',
                                                                                                            '').replace(
+                        '\t',
+                        '').replace(
                         '\n', '').replace('\r', ''))
             except:
                 err_files.append(file)
@@ -253,6 +255,7 @@ def move_file(in_path='target_txt', in_file='fileinfo.xlsx', out_path='分类1',
 
 def select(in_path='txt',
            keywords=[],
+           title_content=0,
            fun=4):
     if not fun == 4:
         return
@@ -266,11 +269,23 @@ def select(in_path='txt',
         os.mkdir(keyword) if not os.path.exists(keyword) else 1
 
     files = os.listdir(in_path)
-    for file in files:
-        for keyword in keywords:
-            if keyword in file:
-                print(file)
-                shutil.copy(os.path.join(in_path, file), os.path.join(keyword, file))
+    if title_content == 0:
+        print('通过【标题】筛选：')
+        for file in files:
+            for keyword in keywords:
+                if keyword in file:
+                    print(file)
+                    shutil.copy(os.path.join(in_path, file), os.path.join(keyword, file))
+    elif title_content == 1:
+        print('通过【内容】筛选：')
+        for file in files:
+            with open(os.path.join(in_path, file), 'r', encoding='gbk', errors='ignore') as f:
+                content = f.read().replace(' ', '').replace('\t', '').replace('\n', '').replace('\r', '').replace('..', '')
+                content = content[:min(len(content), 1000)]
+                for keyword in keywords:
+                    if keyword in content:
+                        print(file)
+                        shutil.copy(os.path.join(in_path, file), os.path.join(keyword, file))
 
     print('筛选完成')
 
@@ -397,8 +412,17 @@ def clear(in_path='txt',
     savefiles = []
     for title2date2file in code2title2date2file.values():
         for date2file in title2date2file.values():
-            for file in date2file.values():
-                savefiles.extend(file)
+            for date, fs in date2file.items():
+                if len(fs) > 1:
+                    is_find = False
+                    for file in fs:
+                        if '摘' in file:
+                            is_find = True
+                            savefiles.append(file)
+                    if not is_find:
+                        savefiles.extend(fs)
+                else:
+                    savefiles.extend(fs)
 
     for file in files:
         if file not in savefiles:
