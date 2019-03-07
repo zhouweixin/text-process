@@ -280,18 +280,20 @@ def select(in_path='txt',
         print('通过【内容】筛选：')
         for file in files:
             with open(os.path.join(in_path, file), 'r', encoding='gbk', errors='ignore') as f:
-                content = f.read().replace(' ', '').replace('\t', '').replace('\n', '').replace('\r', '').replace('..', '')
+                content = f.read().replace(' ', '').replace('\t', '').replace('\n', '').replace('\r', '').replace('..',
+                                                                                                                  '')
                 content = content[:min(len(content), 1000)]
-                for keyword in keywords:
-                    if keyword in content:
-                        print(file)
-                        shutil.copy(os.path.join(in_path, file), os.path.join(keyword, file))
+            for keyword in keywords:
+                if keyword in content:
+                    print(file)
+                    shutil.copy(os.path.join(in_path, file), os.path.join(keyword, file))
 
     print('筛选完成')
 
 
 def rev(in_path='txt',
-        keyword='',
+        keywords=[],
+        title_content=0,
         fun=5):
     if not fun == 5:
         return
@@ -302,10 +304,24 @@ def rev(in_path='txt',
         print('路径不存在：' + in_path)
 
     files = os.listdir(in_path)
-    for file in files:
-        if keyword in file:
-            print(file)
-            os.remove(os.path.join(in_path, file))
+    if title_content == 0:
+        for file in files:
+            for keyword in keywords:
+                if keyword in file:
+                    print(file)
+                    os.remove(os.path.join(in_path, file))
+                    break
+    else:
+        for file in files:
+            with open(os.path.join(in_path, file), 'r', encoding='gbk', errors='ignore') as f:
+                content = f.read().replace(' ', '').replace('\t', '').replace('\n', '') \
+                    .replace('\r', '').replace('..', '')
+
+            for keyword in keywords:
+                if keyword in content:
+                    print(file)
+                    os.remove(os.path.join(in_path, file))
+                    break
 
     print('删除完成')
 
@@ -429,3 +445,27 @@ def clear(in_path='txt',
             print('delete：' + file)
             os.remove(os.path.join(in_path, file))
     print('去重完成')
+
+
+def merge(in_path='source',
+          out_path='target',
+          fun=8):
+    if not fun == 8:
+        return
+
+    print("【归整文件】")
+
+    if not os.path.exists(in_path):
+        print('文件夹不存在：' + in_path)
+        return
+
+    os.mkdir(out_path) if not os.path.exists(out_path) else 1
+
+    dirs = os.listdir(in_path)
+    for dir in dirs:
+        files = os.listdir(os.path.join(in_path, dir))
+        for file in files:
+            print("copy: " + file)
+            shutil.copy(os.path.join(in_path, dir, file), os.path.join(out_path, file))
+
+    print('归整完成')
