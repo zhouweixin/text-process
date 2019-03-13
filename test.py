@@ -1,10 +1,9 @@
-import sys
-import time
+import re
 
-
-for i in range(10):
-    time.sleep(1)
-    sys.stdout.write('\r%d / %d' % (i+1, 10));
+text = "小明','小刚\",\" 小李";
+print(text)
+text = re.sub(',', '', text)
+print(text)
 
 
     

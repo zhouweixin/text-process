@@ -3,6 +3,7 @@ import re
 import pandas as pd
 import shutil
 import sys
+import mysql.connector as mysql
 
 
 def extract_info_by_filename(in_path='txt',
@@ -469,3 +470,150 @@ def merge(in_path='source',
             shutil.copy(os.path.join(in_path, dir, file), os.path.join(out_path, file))
 
     print('归整完成')
+
+
+def extract_from_baodao(in_path='baodao',
+                        database='baodao',
+                        table='dada',
+                        user='root',
+                        password='root',
+                        fun=9):
+    if not fun == 9:
+        return
+
+    print("【报道信息提取】")
+
+    if not os.path.exists(in_path):
+        print('文件夹不存在：' + in_path)
+        return
+
+    failed_file = 'match_failed_files.txt'
+    conflict_file = 'match_conflict_files.txt'
+    dup_file = 'match_conflict_files.txt'
+    # os.remove(failed_file) if os.path.exists(failed_file) else 1
+    # os.remove(conflict_file) if os.path.exists(conflict_file) else 1
+
+    conn = mysql.Connect(user=user, password=password, database=database)
+    cursor = conn.cursor()
+
+    files = os.listdir(in_path)
+    for i, file in enumerate(files):
+        sys.stdout.write('\r%d / %d' % (i + 1, len(files)))
+        title = file
+        if len(title) > 7:
+            title = title[:-7]
+
+        # title = title[:min(15, len(title))]
+        title = title.replace("_", ':').replace(" ", '').replace("　", '')
+        with open(os.path.join(in_path, file), 'r', encoding='gbk', errors='ignore') as f:
+            lines = f.readlines()
+
+        for line in lines:
+            if '报' in line and '年' in line and '月' in line and '日' in line:
+                line = line.replace(' ', '').replace('/', '').replace('\n', '').replace('\r', '')
+                match = re.search(r'(.*报)(\d{4})年(\d{1,2})月(\d{1,2})日', line)
+
+                content = ''.join(lines).replace(' ', '').replace('\t', '').replace('\n', '').replace('\r', '').replace(
+                    '..', '')
+
+                if match:
+                    office = match.group(1)
+                    year = match.group(2)
+                    month = match.group(3)
+                    day = match.group(4)
+                    date = '%d-%02d-%02d' % (int(year), int(month), int(day))
+
+                    update_sql = "update " + table + " set 内容=%s where 报纸名称=%s and 日期=%s and (LOCATE(%s, 题名) or LOCATE(题名, %s))"
+                    query_sql = "select count(*) from " + table + " where 报纸名称=%s and 日期=%s and (LOCATE(%s, 题名) or LOCATE(题名, %s))"
+                    query_sql1 = "select count(*) from " + table + " where 报纸名称=%s and 日期=%s and (LOCATE(%s, 题名) or LOCATE(题名, %s)) and LENGTH(内容)>0"
+
+                    cursor.execute(query_sql1, [office, date, title, title])
+                    num = cursor.fetchone()[0]
+                    if num > 0:
+                        append(file, dup_file)
+
+                    cursor.execute(query_sql, [office, date, title, title])
+                    num = cursor.fetchone()[0]
+
+                    if num == 0:
+                        append(file, failed_file)
+                    elif num == 1:
+                        cursor.execute(update_sql, [content, office, date, title, title])
+                        conn.commit()
+                    else:
+                        append(file, conflict_file)
+
+                break
+
+    cursor.close()
+    conn.close()
+
+    print('处理完成')
+
+    num = getNum(failed_file)
+    if num > 0:
+        print('匹配失败的个数: %d, 请看文件: %s' % (num, failed_file))
+
+    num = getNum(conflict_file)
+    if num > 0:
+        print('匹配多个的个数: %d, 请看文件: %s' % (num, conflict_file))
+
+    num = getNum(dup_file)
+    if num > 0:
+        print('匹配重复的个数: %d, 请看文件: %s' % (num, dup_file))
+
+
+def append(msg, file):
+    with open(file, 'a+', encoding='gbk', errors='ignore') as f:
+        f.write(msg + '\n')
+
+
+def getNum(file):
+    if not os.path.exists(file):
+        return 0
+
+    with open(file, 'r', encoding='gbk', errors='ignore') as f:
+        return len(f.readlines())
+
+
+def recover_filename(in_file='fileinfo.xlsx',
+                 in_path='target',
+                 fun=10):
+
+    if not fun == 10:
+        return
+
+    print("【复原文件名】")
+
+    if not os.path.exists(in_path):
+        print('文件夹不存在：' + in_path)
+        return
+
+    if not os.path.exists(in_file):
+        print('文件不存在：' + in_file)
+        return
+
+    headers = ['序号', '证券代码', '日期', '公告序号', '公司简称', '标题']
+    datas = pd.read_excel(in_file, dtype=str)
+    datas = datas.to_dict(orient='index')
+    id2filename = {}
+    for data in datas.values():
+        id = data['序号']
+        code = data['证券代码']
+        date = data['日期']
+        firm = data['公司简称']
+        title = data['标题']
+
+        filename = '%s-%s：%s(%s).txt' % (code, firm, title, date)
+        id2filename[id] = filename
+
+    files = os.listdir(in_path)
+    for file in files:
+        id = file.replace('.txt', '')
+        if id in id2filename.keys():
+            shutil.copy(os.path.join(in_path, file), os.path.join(in_path, id2filename[id]))
+
+
+    print('复原完成')
+
+

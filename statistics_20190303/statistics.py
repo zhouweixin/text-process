@@ -15,7 +15,7 @@ import re
 import pandas as pd
 
 
-def start(in_path=r'分类', out_file='结果.xlsx'):
+def start(in_path=r'D:\助研\成程老师\20190303\分类', out_file='结果.xlsx'):
     """
     :param in_path: 输入文件夹
     :param out_file: 输出文件
@@ -25,7 +25,7 @@ def start(in_path=r'分类', out_file='结果.xlsx'):
         print('不存在：' + in_path)
         return
 
-    headers = ['公告日期', '证券代码', '公告标题']
+    headers = ['公告日期', '证券代码', '公司名称', '公告标题']
     file2type = {}
     file2info = {}
 
@@ -40,14 +40,20 @@ def start(in_path=r'分类', out_file='结果.xlsx'):
                 code = match.group(1)
                 title = match.group(2)
                 date = match.group(3)
-                info = file2info.setdefault(file, {'公告日期': code, '证券代码': title, '公告标题': date})
+                firm = ""
+                if "：" in title:
+                    firm = title.split("：")[0];
+                    title = title.split("：")[1];
+                info = file2info.setdefault(file, {'证券代码': code, '公司名称': firm, '公告标题': title, '公告日期': date})
 
                 for d in dirs:
                     if d not in info:
                         info[d] = 0
                 info[dir] = 1
 
-    datas = pd.DataFrame(list(file2info.values()), columns=headers)
+    infos = list(file2info.values())
+    infos.sort(key=lambda info: info['证券代码'])
+    datas = pd.DataFrame(infos, columns=headers)
     datas.to_excel(out_file, header=headers, index=False)
     print('完成, 保存：' + out_file)
 
