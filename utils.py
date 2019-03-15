@@ -487,60 +487,78 @@ def extract_from_baodao(in_path='baodao',
         print('文件夹不存在：' + in_path)
         return
 
-    failed_file = 'match_failed_files.txt'
-    conflict_file = 'match_conflict_files.txt'
-    dup_file = 'match_conflict_files.txt'
+    # 失败的文件名
+    failed_file = 'match_failed_files.txt'  # 匹配失败错误的文件名
+    conflict_file = 'match_conflict_files.txt'  # 匹配冲突错误的文件名(匹配到多个)
+    dup_file = 'match_dup_files.txt'  # 重复错误的文件名
+
+    # 删除失败的文件
     # os.remove(failed_file) if os.path.exists(failed_file) else 1
     # os.remove(conflict_file) if os.path.exists(conflict_file) else 1
+    # os.remove(dup_file) if os.path.exists(dup_file) else 1
 
+    # 连接数据库：user用户名，password密码，database数据库名
     conn = mysql.Connect(user=user, password=password, database=database)
     cursor = conn.cursor()
 
+    # 所有待导入的文件
     files = os.listdir(in_path)
     for i, file in enumerate(files):
         sys.stdout.write('\r%d / %d' % (i + 1, len(files)))
+
+        # 从文件名里提取标题
         title = file
+
+        # 去除000.txt
         if len(title) > 7:
             title = title[:-7]
 
-        # title = title[:min(15, len(title))]
+        # 去除中英文的空格，把_替换成:
         title = title.replace("_", ':').replace(" ", '').replace("　", '')
+
+        # 读入文件
         with open(os.path.join(in_path, file), 'r', encoding='gbk', errors='ignore') as f:
             lines = f.readlines()
 
         for line in lines:
+            # 提取报杜名称和日期
             if '报' in line and '年' in line and '月' in line and '日' in line:
                 line = line.replace(' ', '').replace('/', '').replace('\n', '').replace('\r', '')
                 match = re.search(r'(.*报)(\d{4})年(\d{1,2})月(\d{1,2})日', line)
 
+                # 提取文件内容
                 content = ''.join(lines).replace(' ', '').replace('\t', '').replace('\n', '').replace('\r', '').replace(
                     '..', '')
 
                 if match:
-                    office = match.group(1)
-                    year = match.group(2)
-                    month = match.group(3)
-                    day = match.group(4)
+                    office = match.group(1)  # 报杜
+                    year = match.group(2)  # 年
+                    month = match.group(3)  # 月
+                    day = match.group(4)  # 日
+
+                    # 年月日拼接成日期
                     date = '%d-%02d-%02d' % (int(year), int(month), int(day))
 
                     update_sql = "update " + table + " set 内容=%s where 报纸名称=%s and 日期=%s and (LOCATE(%s, 题名) or LOCATE(题名, %s))"
                     query_sql = "select count(*) from " + table + " where 报纸名称=%s and 日期=%s and (LOCATE(%s, 题名) or LOCATE(题名, %s))"
                     query_sql1 = "select count(*) from " + table + " where 报纸名称=%s and 日期=%s and (LOCATE(%s, 题名) or LOCATE(题名, %s)) and LENGTH(内容)>0"
 
+                    # 判断是否已经存在
                     cursor.execute(query_sql1, [office, date, title, title])
                     num = cursor.fetchone()[0]
                     if num > 0:
                         append(file, dup_file)
 
+                    # 查询匹配到的个数
                     cursor.execute(query_sql, [office, date, title, title])
                     num = cursor.fetchone()[0]
 
-                    if num == 0:
+                    if num == 0:  # 匹配失败
                         append(file, failed_file)
-                    elif num == 1:
+                    elif num == 1:  # 匹配成功
                         cursor.execute(update_sql, [content, office, date, title, title])
                         conn.commit()
-                    else:
+                    else:  # 匹配冲突
                         append(file, conflict_file)
 
                 break
@@ -550,25 +568,39 @@ def extract_from_baodao(in_path='baodao',
 
     print('处理完成')
 
+    # 显示是否有匹配失败的文件
     num = getNum(failed_file)
     if num > 0:
         print('匹配失败的个数: %d, 请看文件: %s' % (num, failed_file))
 
+    # 显示是否有匹配冲突的文件
     num = getNum(conflict_file)
     if num > 0:
         print('匹配多个的个数: %d, 请看文件: %s' % (num, conflict_file))
 
+    # 显示是否有匹配重复的文件
     num = getNum(dup_file)
     if num > 0:
         print('匹配重复的个数: %d, 请看文件: %s' % (num, dup_file))
 
 
 def append(msg, file):
+    """
+    添加内容
+    :param msg:
+    :param file:
+    :return:
+    """
     with open(file, 'a+', encoding='gbk', errors='ignore') as f:
         f.write(msg + '\n')
 
 
 def getNum(file):
+    """
+    查询数量
+    :param file:
+    :return:
+    """
     if not os.path.exists(file):
         return 0
 
@@ -577,9 +609,8 @@ def getNum(file):
 
 
 def recover_filename(in_file='fileinfo.xlsx',
-                 in_path='target',
-                 fun=10):
-
+                     in_path='target',
+                     fun=10):
     if not fun == 10:
         return
 
@@ -613,7 +644,90 @@ def recover_filename(in_file='fileinfo.xlsx',
         if id in id2filename.keys():
             shutil.copy(os.path.join(in_path, file), os.path.join(in_path, id2filename[id]))
 
-
     print('复原完成')
 
 
+def extract_info_import_db(in_path='txt',
+                           database='yidaiyilu',
+                           table='data',
+                           user='root',
+                           password='root',
+                           fun=11):
+    """
+    根据文件名提取信息(编号)：【序号】，【证券代码】，【日期】，【公司简称】，【标题】，【公告序号】，【移动】
+    :param in_path: 输入路径
+    :param out_path: 输出路径
+    :param out_file: 输出文件名
+    :return:
+    """
+    if not fun == 11:
+        return
+
+    print("【提取信息到数据库】")
+
+    if not os.path.exists(in_path):
+        print("路径不存在：" + in_path)
+        return;
+
+    # 1.创建数据库
+    conn = mysql.Connect(user=user, password=password)
+    cursor = conn.cursor()
+    cursor.execute("create database if not exists " + database)
+    conn.commit()
+
+    conn.database = database
+
+    # 2.创建表
+    sql = """CREATE TABLE IF NOT EXISTS `%s`  (
+              `id` int(11) NOT NULL AUTO_INCREMENT,
+              `文件名` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL,
+              `证券代码` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL,
+              `日期` date DEFAULT NULL,
+              `公告序号` int(11) DEFAULT NULL,
+              `公司简称` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL,
+              `标题` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL,
+              `内容` longtext CHARACTER SET utf8 COLLATE utf8_general_ci,
+              PRIMARY KEY (`id`) USING BTREE
+            ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Compact;""" % table
+    cursor.execute(sql)
+    conn.commit()
+
+    sql = "INSERT INTO `" + table + "` (id, `文件名`, `证券代码`, `日期`, `公告序号`, `公司简称`, `标题`, `内容`) VALUES (null, %s, %s, %s, %s, %s, %s, %s);"
+    codedate2num = {}
+
+    files = os.listdir(in_path)
+    err_files = []
+    # 序号
+    row_num = 0
+    datas = []
+    for i, file in enumerate(files):
+        sys.stdout.write('\r%d / %d' % (i+1, len(files)))
+
+        match = re.match('(\d{6})-(.*)：(.*)\((\d{4}-\d{1,2}-\d{1,2})\)', file)
+        if match:
+            # 证券代码
+            code = match.group(1)
+            # 公司简称
+            firm = match.group(2)
+            # 标题
+            title = match.group(3)
+            # 日期
+            date = match.group(4)
+
+            key = code + date
+            num = codedate2num.setdefault(key, 0) + 1
+            codedate2num[key] = num
+            row_num += 1
+
+            content = ''
+            with open(os.path.join(in_path, file), encoding='gbk', errors='ignore') as f:
+                content = f.read().replace(' ', '').replace('\t', '').replace('\n', '').replace('\r', '').replace(
+                    '..', '')
+
+            # 添加到数据库
+            cursor.execute(sql, [file, code, date, num, firm, title, content])
+            conn.commit()
+
+            datas.append(
+                {'序号': row_num, '证券代码': str(code), '公司简称': firm, '标题': title, '日期': date, '公告序号': num, '移动': 0})
+    print('\n提取完成')
